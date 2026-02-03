@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { MapPin, Phone, Clock, Loader2, Plus, Minus, Trash2 } from "lucide-react";
 import { z } from "zod";
+import { sendOrderToSheets } from "@/lib/googleSheets";
+import { formatWhatsAppMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 
 // Validation schemas
 const inquirySchema = z.object({
@@ -38,21 +40,22 @@ interface OrderItem {
 const ContactSection = () => {
   const { toast } = useToast();
 
-  // Inquiry form state
+  // Inquiry form state (email prefilled per request)
   const [inquiryForm, setInquiryForm] = useState({
     customer_name: "",
-    email: "",
+    email: "jeevazpage@gmail.com",
     message: "",
   });
 
-  // Order form state
+  // Order form state (email prefilled and phone populated only in the order form)
   const [orderForm, setOrderForm] = useState({
     customer_name: "",
-    email: "",
-    phone: "",
+    email: "jeevazpage@gmail.com",
+    phone: "+91 7550314901",
     special_requests: "",
   });
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const pendingWindowRef = useRef<Window | null>(null);
 
   // Fetch menu items for order form
   const { data: menuItems } = useQuery({
@@ -98,7 +101,7 @@ const ContactSection = () => {
     },
   });
 
-  // Submit order mutation
+  // Submit order mutation — saves to Google Sheets and then opens WhatsApp Click-to-Chat
   const orderMutation = useMutation({
     mutationFn: async (data: { form: typeof orderForm; items: OrderItem[] }) => {
       const validated = orderSchema.parse(data.form);
@@ -107,46 +110,93 @@ const ContactSection = () => {
         throw new Error("Please add at least one item to your order");
       }
 
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert([{
-          customer_name: validated.customer_name,
-          email: validated.email,
-          phone: validated.phone || null,
-          special_requests: validated.special_requests || null,
-        }])
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItemsData = data.items.map((item) => {
-        const menuItem = menuItems?.find((m) => m.id === item.menuItemId);
+      const itemsDetailed = data.items.map((it) => {
+        const menuItem = menuItems?.find((m) => m.id === it.menuItemId);
+        const unitPrice = 7;
         return {
-          order_id: order.id,
-          menu_item_id: item.menuItemId,
-          quantity: item.quantity,
-          price_at_order: menuItem?.price || 0,
+          id: it.menuItemId,
+          name: menuItem?.name ?? "Unknown",
+          quantity: it.quantity,
+          price: unitPrice,
         };
       });
 
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItemsData);
+      const total = itemsDetailed.reduce((t, it) => t + it.price * it.quantity, 0);
 
-      if (itemsError) throw itemsError;
+      const payload = {
+        order_date: new Date().toISOString(),
+        customer_name: validated.customer_name,
+        email: validated.email,
+        phone: validated.phone || "",
+        special_requests: validated.special_requests || "",
+        items: itemsDetailed,
+        total,
+      };
+
+      // Send to Google Sheets webhook (secret is appended by helper if configured)
+      await sendOrderToSheets({ ...payload, secret: import.meta.env.VITE_GOOGLE_SHEETS_SECRET });
+
+      return payload;
     },
-    onSuccess: () => {
+    onSuccess: (payload: any) => {
       toast({
         title: "Order Submitted!",
-        description: "Thank you for your order. We'll contact you shortly to confirm!",
+        description: "Order saved — redirecting to WhatsApp.",
       });
+
+      // Build the message and URL
+      try {
+        const message = formatWhatsAppMessage({
+          orderDate: payload.order_date,
+          form: {
+            customer_name: payload.customer_name,
+            email: payload.email,
+            phone: payload.phone,
+            special_requests: payload.special_requests,
+          },
+          items: payload.items,
+          total: payload.total,
+        });
+        const url = buildWhatsAppUrl(message);
+
+        // If we opened a window synchronously earlier, redirect it; otherwise try to open a new tab
+        const win = pendingWindowRef.current;
+        if (win && !win.closed) {
+          try {
+            win.location.href = url;
+          } catch (err) {
+            // Fallback if we can't set location (rare)
+            try {
+              window.open(url, "_blank");
+            } catch (err2) {
+              toast({ title: "Notice", description: "Could not open WhatsApp automatically. Please use the contact number provided to place your order." });
+            }
+          }
+        } else {
+          // No pre-opened window (or it was blocked/closed) — try to open one now
+          const opened = window.open(url, "_blank");
+          if (!opened) {
+            toast({ title: "Notice", description: "Could not open WhatsApp automatically. Please allow popups or use the contact number provided." });
+          }
+        }
+      } catch (err) {
+        toast({ title: "Notice", description: "Could not open WhatsApp automatically. Please use the contact number provided." });
+      } finally {
+        pendingWindowRef.current = null;
+      }
+
       setOrderForm({ customer_name: "", email: "", phone: "", special_requests: "" });
       setOrderItems([]);
     },
     onError: (error) => {
+      // Close any pre-opened window to avoid leaving an unused blank tab
+      try {
+        pendingWindowRef.current?.close();
+      } catch (e) {
+        // ignore
+      }
+      pendingWindowRef.current = null;
+
       toast({
         title: "Error",
         description: error instanceof z.ZodError
@@ -157,6 +207,7 @@ const ContactSection = () => {
         variant: "destructive",
       });
     },
+
   });
 
   const addToOrder = (menuItemId: string) => {
@@ -174,6 +225,29 @@ const ContactSection = () => {
     }
   };
 
+  // Handle form submit: open a blank window synchronously (avoids popup blocker) and store ref
+  const handleOrderSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Open a blank tab/window synchronously so the browser treats it as user-initiated
+    try {
+      const newWin = window.open("", "_blank");
+      if (!newWin) {
+        toast({
+          title: "Popup blocked",
+          description: "Please allow popups so WhatsApp can open automatically.",
+          variant: "destructive",
+        });
+      }
+      pendingWindowRef.current = newWin;
+    } catch (err) {
+      // ignore - will show a notice later if redirect fails
+      pendingWindowRef.current = null;
+    }
+
+    orderMutation.mutate({ form: orderForm, items: orderItems });
+  };
+
   const updateQuantity = (menuItemId: string, delta: number) => {
     setOrderItems((items) =>
       items
@@ -187,9 +261,9 @@ const ContactSection = () => {
   };
 
   const getOrderTotal = () => {
+    const unitPrice = 7;
     return orderItems.reduce((total, item) => {
-      const menuItem = menuItems?.find((m) => m.id === item.menuItemId);
-      return total + (menuItem?.price || 0) * item.quantity;
+      return total + unitPrice * item.quantity;
     }, 0);
   };
 
@@ -325,10 +399,7 @@ const ContactSection = () => {
               </h3>
 
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  orderMutation.mutate({ form: orderForm, items: orderItems });
-                }}
+                onSubmit={(e) => handleOrderSubmit(e)}
                 className="space-y-8"
               >
                 {/* Menu Items Selection */}
@@ -404,7 +475,7 @@ const ContactSection = () => {
                   <div className="p-4 rounded-xl bg-muted">
                     <div className="flex items-center justify-between text-lg font-semibold">
                       <span>Order Total:</span>
-                      <span className="text-primary">₹{orderItems.reduce((total, item) => total + 7 * item.quantity, 0)}</span>
+                      <span className="text-primary">₹{getOrderTotal()}</span>
                     </div>
                   </div>
                 )}

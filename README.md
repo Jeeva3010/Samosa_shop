@@ -64,6 +64,20 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
+---
+
+## Google Sheets & WhatsApp Order Workflow ⚠️
+
+This project includes a helper to send submitted orders to a Google Sheet and then open WhatsApp for customer confirmation.
+
+- Add the Apps Script webhook (see `scripts/google-apps-script/sheet_order_webhook.gs`) to your Google Apps Script and set the script properties: `SHEET_ID` and `WEBHOOK_SECRET`.
+- Set these env variables in your Vite environment (for dev use `.env.local`):
+  - `VITE_GOOGLE_SHEETS_WEBHOOK` - Apps Script Web App deployment URL
+  - `VITE_GOOGLE_SHEETS_SECRET` - secret token (matches `WEBHOOK_SECRET`)
+  - `VITE_WHATSAPP_NUMBER` - business phone number in international format (e.g. +919876543210)
+
+Refer to `docs/google-sheets-integration.md` for full setup and security notes.
+
 ## Can I connect a custom domain to my Lovable project?
 
 Yes, you can!

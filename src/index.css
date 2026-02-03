@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Samosa Shop Design System - Warm Indian Spice Palette */
+
+@layer base {
+  :root {
+    /* Warm cream background */
+    --background: 40 33% 96%;
+    --foreground: 20 25% 15%;
+
+    /* Card with subtle warmth */
+    --card: 40 30% 98%;
+    --card-foreground: 20 25% 15%;
+
+    --popover: 40 30% 98%;
+    --popover-foreground: 20 25% 15%;
+
+    /* Saffron/Turmeric Primary */
+    --primary: 32 95% 50%;
+    --primary-foreground: 40 30% 98%;
+
+    /* Warm terracotta secondary */
+    --secondary: 16 60% 40%;
+    --secondary-foreground: 40 30% 98%;
+
+    /* Muted warm tones */
+    --muted: 35 20% 90%;
+    --muted-foreground: 20 15% 45%;
+
+    /* Deep spice accent */
+    --accent: 8 70% 35%;
+    --accent-foreground: 40 30% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 40 30% 98%;
+
+    --border: 35 25% 85%;
+    --input: 35 25% 85%;
+    --ring: 32 95% 50%;
+
+    --radius: 0.5rem;
+
+    /* Custom tokens for the samosa shop */
+    --hero-gradient: linear-gradient(135deg, hsl(32 95% 50% / 0.9), hsl(16 60% 40% / 0.9));
+    --warm-shadow: 0 10px 40px -10px hsl(20 25% 15% / 0.2);
+    --spice-glow: 0 0 30px hsl(32 95% 50% / 0.3);
+    
+    /* Typography */
+    --font-display: 'Playfair Display', serif;
+    --font-body: 'Source Sans 3', sans-serif;
+  }
+
+  .dark {
+    --background: 20 25% 10%;
+    --foreground: 40 20% 95%;
+
+    --card: 20 20% 15%;
+    --card-foreground: 40 20% 95%;
+
+    --popover: 20 20% 15%;
+    --popover-foreground: 40 20% 95%;
+
+    --primary: 32 95% 55%;
+    --primary-foreground: 20 25% 10%;
+
+    --secondary: 16 50% 50%;
+    --secondary-foreground: 40 20% 95%;
+
+    --muted: 20 15% 25%;
+    --muted-foreground: 35 15% 65%;
+
+    --accent: 8 60% 45%;
+    --accent-foreground: 40 20% 95%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 40 20% 95%;
+
+    --border: 20 15% 25%;
+    --input: 20 15% 25%;
+    --ring: 32 95% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .hero-section {
+    @apply relative overflow-hidden;
+    background: var(--hero-gradient);
+  }
+
+  .section-heading {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-4;
+    font-family: var(--font-display);
+  }
+
+  .section-subheading {
+    @apply text-lg md:text-xl text-muted-foreground text-center max-w-2xl mx-auto mb-12;
+  }
+
+  .menu-card {
+    @apply bg-card rounded-2xl overflow-hidden transition-all duration-300;
+    box-shadow: var(--warm-shadow);
+  }
+
+  .menu-card:hover {
+    @apply transform -translate-y-2;
+    box-shadow: var(--spice-glow), var(--warm-shadow);
+  }
+
+  .whatsapp-button {
+    @apply fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform duration-300 hover:scale-110;
+    background: #25D366;
+  }
+
+  .nav-link {
+    @apply relative px-4 py-2 text-sm font-medium transition-colors duration-200;
+  }
+
+  .nav-link::after {
+    @apply absolute bottom-0 left-1/2 w-0 h-0.5 bg-primary transition-all duration-300;
+    content: '';
+    transform: translateX(-50%);
+  }
+
+  .nav-link:hover::after {
+    @apply w-3/4;
+  }
+
+  .spice-divider {
+    @apply flex items-center justify-center gap-4 my-12;
+  }
+
+  .spice-divider::before,
+  .spice-divider::after {
+    @apply h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent;
+    content: '';
+  }
+}

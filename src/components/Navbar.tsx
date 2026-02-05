@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/images/logo.png";
 
 const navItems = [
   { label: "Home", href: "#home" },
@@ -28,10 +29,11 @@ const Navbar = () => {
           <a 
             href="#home" 
             onClick={(e) => { e.preventDefault(); scrollToSection("#home"); }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-3"
           >
+            <img src={logo} alt="Samosa House Logo" className="h-10 w-10 object-contain" />
             <span className="text-2xl font-display font-bold text-primary">
-              🥟 Samosa House
+              Samosa House
             </span>
           </a>
 

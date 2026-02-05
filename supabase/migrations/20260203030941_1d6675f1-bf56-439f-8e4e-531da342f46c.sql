@@ -82,10 +82,10 @@ WITH CHECK (true);
 -- Insert initial menu items
 INSERT INTO public.menu_items (name, description, price, category) VALUES
   ('Samosa', 'Crispy golden pastry filled with spiced potatoes and peas, deep-fried to perfection', 2.50, 'samosas'),
-  ('Chilli Baji', 'Spicy green chillies dipped in chickpea batter and fried until crispy', 3.00, 'sides'),
-  ('Suger Ponda', 'Sweet fried dough balls coated in sugar syrup, a delightful treat', 2.00, 'sides'),
+  ('Valakai Baji', 'Spicy green chillies dipped in chickpea batter and fried until crispy', 3.00, 'sides'),
+  ('Paruppu Vadai', 'Sweet fried dough balls coated in sugar syrup, a delightful treat', 2.00, 'sides'),
   ('Ullunthu Vadai', 'Traditional South Indian lentil fritters, crispy outside and soft inside', 2.50, 'sides'),
-  ('Paruppu Vadai', 'Savory lentil patties seasoned with aromatic spices and herbs', 2.50, 'sides');
+  ('Chilli Baji', 'Savory lentil patties seasoned with aromatic spices and herbs', 2.50, 'sides');
 
 -- Create function to update timestamps
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -101,3 +101,4 @@ CREATE TRIGGER update_menu_items_updated_at
 BEFORE UPDATE ON public.menu_items
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
+

@@ -1,87 +1,71 @@
-# Welcome to your Lovable project
+# Samosa House
 
-## Project info
+Welcome to Samosa House - your destination for authentic Indian street food!
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## About This Project
 
-## How can I edit this code?
+Samosa House is a modern web application showcasing our delicious menu of traditional Indian samosas and snacks. Built with React, TypeScript, and Tailwind CSS, it offers a beautiful and responsive user experience.
 
-There are several ways of editing your application.
+## Development
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Node.js (v18 or higher)
+- npm or yarn
 
-Changes made via Lovable will be committed automatically to this repo.
+### Getting Started
 
-**Use your preferred IDE**
+1. Clone this repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser and navigate to `http://localhost:8080`
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Available Scripts
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm test` - Run tests
+- `npm run test:watch` - Run tests in watch mode
 
-Follow these steps:
+## Tech Stack
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **Framework**: React with Vite
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v3
+- **UI Components**: shadcn/ui
+- **State Management**: TanStack Query
+- **Routing**: React Router v7
+- **Database**: Supabase
+- **Testing**: Vitest
+- **Icons**: Lucide React
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## Features
 
-# Step 3: Install the necessary dependencies.
-npm i
+- 🥟 Beautiful menu showcase
+- 📱 Fully responsive design
+- 🎨 Modern UI with Tailwind CSS
+- 🔥 Fast development with Vite
+- 🧪 Comprehensive testing setup
+- 🌐 SEO optimized
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## Deployment
+
+Build the project for production:
+
+```bash
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+The built files will be in the `dist` directory, ready to be deployed to your hosting platform of choice.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## License
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
----
-
-## Google Sheets & WhatsApp Order Workflow ⚠️
-
-This project includes a helper to send submitted orders to a Google Sheet and then open WhatsApp for customer confirmation.
-
-- Add the Apps Script webhook (see `scripts/google-apps-script/sheet_order_webhook.gs`) to your Google Apps Script and set the script properties: `SHEET_ID` and `WEBHOOK_SECRET`.
-- Set these env variables in your Vite environment (for dev use `.env.local`):
-  - `VITE_GOOGLE_SHEETS_WEBHOOK` - Apps Script Web App deployment URL
-  - `VITE_GOOGLE_SHEETS_SECRET` - secret token (matches `WEBHOOK_SECRET`)
-  - `VITE_WHATSAPP_NUMBER` - business phone number in international format (e.g. +919876543210)
-
-Refer to `docs/google-sheets-integration.md` for full setup and security notes.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+All rights reserved © Samosa House

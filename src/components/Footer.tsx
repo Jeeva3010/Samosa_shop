@@ -1,3 +1,5 @@
+import logo from "@/assets/images/logo.png";
+
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
@@ -7,9 +9,12 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Logo */}
           <div className="text-center md:text-left">
-            <span className="text-2xl font-display font-bold">
-              🥟 Samosa House
-            </span>
+            <div className="flex items-center gap-3 justify-center md:justify-start">
+              <img src={logo} alt="Samosa House Logo" className="h-10 w-10 object-contain" />
+              <span className="text-2xl font-display font-bold">
+                Samosa House
+              </span>
+            </div>
             <p className="text-primary-foreground/70 mt-2 text-sm">
               Authentic Indian Street Food
             </p>

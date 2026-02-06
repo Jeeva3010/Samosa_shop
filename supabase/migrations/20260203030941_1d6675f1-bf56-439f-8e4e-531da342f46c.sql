@@ -23,6 +23,13 @@ ON public.menu_items
 FOR SELECT 
 USING (true);
 
+-- Everyone can update menu items (for price changes)
+CREATE POLICY "Menu items are publicly updatable" 
+ON public.menu_items 
+FOR UPDATE 
+USING (true)
+WITH CHECK (true);
+
 -- Create inquiries table
 CREATE TABLE public.inquiries (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -81,11 +88,14 @@ WITH CHECK (true);
 
 -- Insert initial menu items
 INSERT INTO public.menu_items (name, description, price, category) VALUES
-  ('Samosa', 'Crispy golden pastry filled with spiced potatoes and peas, deep-fried to perfection', 2.50, 'samosas'),
-  ('Valakai Baji', 'Spicy green chillies dipped in chickpea batter and fried until crispy', 3.00, 'sides'),
-  ('Paruppu Vadai', 'Sweet fried dough balls coated in sugar syrup, a delightful treat', 2.00, 'sides'),
-  ('Ullunthu Vadai', 'Traditional South Indian lentil fritters, crispy outside and soft inside', 2.50, 'sides'),
-  ('Chilli Baji', 'Savory lentil patties seasoned with aromatic spices and herbs', 2.50, 'sides');
+  ('Samosa', 'Crispy golden pastry filled with spiced potatoes and peas, deep-fried to perfection', 7.00, 'samosas'),
+  ('Valakai Baji', 'Spicy green chillies dipped in chickpea batter and fried until crispy', 7.00, 'sides'),
+  ('Paruppu Vadai', 'Sweet fried dough balls coated in sugar syrup, a delightful treat', 7.00, 'sides'),
+  ('Ullunthu Vadai', 'Traditional South Indian lentil fritters, crispy outside and soft inside', 7.00, 'sides'),
+  ('Chilli Baji', 'Savory lentil patties seasoned with aromatic spices and herbs', 7.00, 'sides'),
+  ('Chai', 'Traditional Indian tea, prepared with aromatic spices and fresh milk', 7.00, 'beverages'),
+  ('Coffee', 'Rich and aromatic coffee, perfect for any time of day', 7.00, 'beverages'),
+  ('Lassi', 'Cool yogurt-based drink, a refreshing complement to spicy food', 7.00, 'beverages');
 
 -- Create function to update timestamps
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()

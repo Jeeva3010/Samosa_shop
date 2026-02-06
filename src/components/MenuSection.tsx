@@ -6,7 +6,7 @@ import samosa1 from "@/assets/images/samosa 1.png";
 import samosa2 from "@/assets/images/samosa 2.png";
 import samosa3 from "@/assets/images/samosa 3.png";
 import chilli from "@/assets/images/img2.jpg";
-import valakai from "@/assets/images/valakaibajji.jpg";
+import ponda from "@/assets/images/ponda.jpg";
 import vadai from "@/assets/images/paruppuvadai.jpg";
 import ulundhavadai from "@/assets/images/ulunthuvadai.jpg";
 
@@ -19,7 +19,7 @@ const categoryLabels = {
 const categoryOrder = ["samosas", "sides", "beverages"];
 
 const samosaImages = [samosa1, samosa2, samosa3];
-const sideImages = [chilli, valakai, vadai, ulundhavadai];
+const sideImages = [chilli, vadai, ponda, ulundhavadai];
 
 const FIXED_PRICE = 7;
 

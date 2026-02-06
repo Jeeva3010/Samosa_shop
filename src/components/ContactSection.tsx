@@ -43,15 +43,15 @@ const ContactSection = () => {
   // Inquiry form state (email prefilled per request)
   const [inquiryForm, setInquiryForm] = useState({
     customer_name: "",
-    email: "jeevazpage@gmail.com",
+    email: "",
     message: "",
   });
 
   // Order form state (email prefilled and phone populated only in the order form)
   const [orderForm, setOrderForm] = useState({
     customer_name: "",
-    email: "jeevazpage@gmail.com",
-    phone: "+91 7550314901",
+    email: "",
+    phone: "",
     special_requests: "",
   });
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -307,7 +307,7 @@ const ContactSection = () => {
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">Phone</h4>
-                    <p className="text-muted-foreground">+91 9976715925</p>
+                    <p className="text-muted-foreground">+91 7550314901</p>
                   </div>
                 </div>
 

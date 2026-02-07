@@ -17,7 +17,22 @@ const WEBHOOK_SECRET = PROPS.getProperty('WEBHOOK_SECRET');
 const SHEET_NAME = PROPS.getProperty('SHEET_NAME') || 'Orders';
 
 function ensureHeader(sheet) {
-  const headers = ['Order Date & Time', 'Customer Name', 'Email', 'Phone', 'Ordered Items', 'Total Amount', 'Special Requests'];
+  const headers = [
+    'Timestamp',
+    'Order ID',
+    'Customer Name',
+    'Email',
+    'Phone',
+    'Items',
+    'Total',
+    'Payment Method',
+    'Payment Status',
+    'Pickup Date',
+    'Pickup Time',
+    'Special Requests',
+    'Order Source',
+    'WhatsApp Confirmed'
+  ];
   const current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
   if (current.join('') !== headers.join('')) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -47,17 +62,39 @@ function doPost(e) {
     const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
     ensureHeader(sheet);
 
-    const orderDate = payload.order_date || new Date().toISOString();
+    const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    const orderId = payload.order_id || 'ORD-' + Date.now();
     const customer = payload.customer_name || '';
     const email = payload.email || '';
     const phone = payload.phone || '';
     const items = Array.isArray(payload.items) ? payload.items.map(i => `${i.name} x ${i.quantity}`).join('; ') : '';
     const total = payload.total || '';
-    const requests = payload.special_requests || '';
+    const paymentMethod = payload.payment_method || 'Not specified';
+    const paymentStatus = payload.payment_status || 'PENDING';
+    const pickupDate = payload.pickup_date || '';
+    const pickupTime = payload.pickup_time || '';
+    const specialRequests = payload.special_requests || '';
+    const orderSource = payload.order_source || 'Website';
+    const whatsappConfirmed = payload.whatsapp_confirmed ? 'Yes' : 'No';
 
-    sheet.appendRow([orderDate, customer, email, phone, items, total, requests]);
+    sheet.appendRow([
+      timestamp,
+      orderId,
+      customer,
+      email,
+      phone,
+      items,
+      total,
+      paymentMethod,
+      paymentStatus,
+      pickupDate,
+      pickupTime,
+      specialRequests,
+      orderSource,
+      whatsappConfirmed
+    ]);
 
-    return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, order_id: orderId }))
       .setMimeType(ContentService.MimeType.JSON)
       .setHeader('Access-Control-Allow-Origin', '*');
   } catch (err) {

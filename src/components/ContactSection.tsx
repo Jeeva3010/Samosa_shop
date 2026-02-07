@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Phone, Clock, Loader2, Plus, Minus, Trash2 } from "lucide-react";
+import { MapPin, Phone, Clock, Loader2, Plus, Minus, Trash2, Upload } from "lucide-react";
 import { z } from "zod";
 import { sendOrderToSheets } from "@/lib/googleSheets";
 import { formatWhatsAppMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
@@ -21,7 +21,10 @@ const inquirySchema = z.object({
 const orderSchema = z.object({
   customer_name: z.string().trim().min(1, "Name is required").max(100, "Name too long"),
   email: z.string().trim().email("Invalid email address").max(255, "Email too long"),
-  phone: z.string().trim().max(20, "Phone number too long").optional(),
+  phone: z.string().trim().min(1, "Phone number is required").max(20, "Phone number too long"),
+  pickup_date: z.string().min(1, "Pickup date is required"),
+  pickup_time: z.string().min(1, "Pickup time is required"),
+  payment_method: z.enum(["cash", "gpay"], { message: "Invalid payment method" }),
   special_requests: z.string().trim().max(500, "Special requests too long").optional(),
 });
 
@@ -37,6 +40,15 @@ interface OrderItem {
   quantity: number;
 }
 
+// Pickup time slots (e.g., 4:00 PM, 4:30 PM, etc.)
+const PICKUP_TIME_SLOTS = [
+  "4:00 PM", "4:15 PM", "4:30 PM", "4:45 PM",
+  "5:00 PM", "5:15 PM", "5:30 PM", "5:45 PM",
+  "6:00 PM", "6:15 PM", "6:30 PM", "6:45 PM",
+  "7:00 PM", "7:15 PM", "7:30 PM", "7:45 PM",
+  "8:00 PM",
+];
+
 const ContactSection = () => {
   const { toast } = useToast();
 
@@ -47,15 +59,19 @@ const ContactSection = () => {
     message: "",
   });
 
-  // Order form state (email prefilled and phone populated only in the order form)
+  // Order form state with new payment fields
   const [orderForm, setOrderForm] = useState({
     customer_name: "",
     email: "",
     phone: "",
+    pickup_date: "",
+    pickup_time: "",
+    payment_method: "cash" as "cash" | "gpay",
     special_requests: "",
   });
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const pendingWindowRef = useRef<Window | null>(null);
+  const [gpayScreenshot, setGpayScreenshot] = useState<File | null>(null);
+  const [isUploadingScreenshot, setIsUploadingScreenshot] = useState(false);
 
   // Fetch menu items for order form
   const { data: menuItems } = useQuery({
@@ -110,6 +126,11 @@ const ContactSection = () => {
         throw new Error("Please add at least one item to your order");
       }
 
+      // Validate Google Pay screenshot if payment method is GPay
+      if (validated.payment_method === "gpay" && !gpayScreenshot) {
+        throw new Error("Screenshot of Google Pay payment is required for Google Pay orders");
+      }
+
       const itemsDetailed = data.items.map((it) => {
         const menuItem = menuItems?.find((m) => m.id === it.menuItemId);
         const unitPrice = 7;
@@ -123,25 +144,35 @@ const ContactSection = () => {
 
       const total = itemsDetailed.reduce((t, it) => t + it.price * it.quantity, 0);
 
+      // Generate Order ID (timestamp-based)
+      const orderId = `ORD-${Date.now()}`;
+
       const payload = {
+        order_id: orderId,
         order_date: new Date().toISOString(),
         customer_name: validated.customer_name,
         email: validated.email,
-        phone: validated.phone || "",
+        phone: validated.phone,
+        pickup_date: validated.pickup_date,
+        pickup_time: validated.pickup_time,
+        payment_method: validated.payment_method === "gpay" ? "Google Pay" : "Cash",
+        payment_status: validated.payment_method === "gpay" ? "PAID_MANUAL" : "CASH_PENDING",
         special_requests: validated.special_requests || "",
         items: itemsDetailed,
         total,
+        order_source: "Website",
+        whatsapp_confirmed: false,
       };
 
       // Send to Google Sheets webhook (secret is appended by helper if configured)
       await sendOrderToSheets({ ...payload, secret: import.meta.env.VITE_GOOGLE_SHEETS_SECRET });
 
-      return payload;
+      return { ...payload };
     },
     onSuccess: (payload: any) => {
       toast({
         title: "Order Submitted!",
-        description: "Order saved — redirecting to WhatsApp.",
+        description: `Order ID: ${payload.order_id} — Opening WhatsApp.`,
       });
 
       // Build the message and URL
@@ -152,51 +183,64 @@ const ContactSection = () => {
             customer_name: payload.customer_name,
             email: payload.email,
             phone: payload.phone,
+            pickup_date: payload.pickup_date,
+            pickup_time: payload.pickup_time,
+            payment_method: payload.payment_method,
             special_requests: payload.special_requests,
           },
           items: payload.items,
           total: payload.total,
+          order_id: payload.order_id,
         });
         const url = buildWhatsAppUrl(message);
 
-        // If we opened a window synchronously earlier, redirect it; otherwise try to open a new tab
-        const win = pendingWindowRef.current;
-        if (win && !win.closed) {
+        console.log("WhatsApp URL:", url.substring(0, 100) + "..."); // Log (without full URL for privacy)
+        console.log("Message length:", message.length);
+        console.log("Phone number:", import.meta.env.VITE_WHATSAPP_NUMBER);
+
+        // Try to open WhatsApp with multiple fallbacks
+        setTimeout(() => {
           try {
-            win.location.href = url;
-          } catch (err) {
-            // Fallback if we can't set location (rare)
-            try {
-              window.open(url, "_blank");
-            } catch (err2) {
-              toast({ title: "Notice", description: "Could not open WhatsApp automatically. Please use the contact number provided to place your order." });
+            // Try method 1: Direct link
+            let opened = window.open(url, "_blank");
+
+            if (!opened) {
+              // Method 2: Try without _blank
+              opened = window.open(url);
             }
+
+            if (!opened) {
+              // Method 3: Direct navigation
+              window.location.href = url;
+            }
+
+            if (!opened) {
+              toast({
+                title: "Opening WhatsApp...",
+                description: "Order ID: " + payload.order_id + ". Please manually contact us."
+              });
+            }
+          } catch (err: any) {
+            console.error("WhatsApp URL error:", err);
+            toast({
+              title: "WhatsApp Link",
+              description: "Please copy Order ID " + payload.order_id + " and contact us on WhatsApp."
+            });
           }
-        } else {
-          // No pre-opened window (or it was blocked/closed) — try to open one now
-          const opened = window.open(url, "_blank");
-          if (!opened) {
-            toast({ title: "Notice", description: "Could not open WhatsApp automatically. Please allow popups or use the contact number provided." });
-          }
-        }
+        }, 200);
       } catch (err) {
-        toast({ title: "Notice", description: "Could not open WhatsApp automatically. Please use the contact number provided." });
-      } finally {
-        pendingWindowRef.current = null;
+        console.error("Message formatting error:", err);
+        toast({
+          title: "Order Saved",
+          description: `Order ID: ${payload.order_id}. Please contact us on WhatsApp.`
+        });
       }
 
-      setOrderForm({ customer_name: "", email: "", phone: "", special_requests: "" });
+      setOrderForm({ customer_name: "", email: "", phone: "", pickup_date: "", pickup_time: "", payment_method: "cash", special_requests: "" });
       setOrderItems([]);
+      setGpayScreenshot(null);
     },
     onError: (error) => {
-      // Close any pre-opened window to avoid leaving an unused blank tab
-      try {
-        pendingWindowRef.current?.close();
-      } catch (e) {
-        // ignore
-      }
-      pendingWindowRef.current = null;
-
       toast({
         title: "Error",
         description: error instanceof z.ZodError
@@ -207,7 +251,6 @@ const ContactSection = () => {
         variant: "destructive",
       });
     },
-
   });
 
   const addToOrder = (menuItemId: string) => {
@@ -225,24 +268,18 @@ const ContactSection = () => {
     }
   };
 
-  // Handle form submit: open a blank window synchronously (avoids popup blocker) and store ref
+  // Handle form submit
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Open a blank tab/window synchronously so the browser treats it as user-initiated
-    try {
-      const newWin = window.open("", "_blank");
-      if (!newWin) {
-        toast({
-          title: "Popup blocked",
-          description: "Please allow popups so WhatsApp can open automatically.",
-          variant: "destructive",
-        });
-      }
-      pendingWindowRef.current = newWin;
-    } catch (err) {
-      // ignore - will show a notice later if redirect fails
-      pendingWindowRef.current = null;
+    // Validate before submitting
+    if (orderForm.payment_method === "gpay" && !gpayScreenshot) {
+      toast({
+        title: "Screenshot Required",
+        description: "Please upload a screenshot of your Google Pay payment before submitting.",
+        variant: "destructive",
+      });
+      return;
     }
 
     orderMutation.mutate({ form: orderForm, items: orderItems });
@@ -510,7 +547,7 @@ const ContactSection = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="order-phone">Phone (Optional)</Label>
+                    <Label htmlFor="order-phone">Phone *</Label>
                     <Input
                       id="order-phone"
                       type="tel"
@@ -518,10 +555,143 @@ const ContactSection = () => {
                       onChange={(e) =>
                         setOrderForm({ ...orderForm, phone: e.target.value })
                       }
-                      placeholder="(555) 123-4567"
+                      placeholder="+91 95500 12345"
+                      required
                       maxLength={20}
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="pickup-date">Pickup Date *</Label>
+                    <Input
+                      id="pickup-date"
+                      type="date"
+                      value={orderForm.pickup_date}
+                      onChange={(e) =>
+                        setOrderForm({ ...orderForm, pickup_date: e.target.value })
+                      }
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="pickup-time">Pickup Time *</Label>
+                    <select
+                      id="pickup-time"
+                      value={orderForm.pickup_time}
+                      onChange={(e) =>
+                        setOrderForm({ ...orderForm, pickup_time: e.target.value })
+                      }
+                      required
+                      className="w-full px-3 py-2 border border-input rounded-md background-color text-foreground"
+                    >
+                      <option value="">Select a time</option>
+                      {PICKUP_TIME_SLOTS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Payment Method Selection */}
+                  <div className="sm:col-span-2">
+                    <Label className="mb-3 block">Payment Method *</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 p-3 border-2 border-border rounded-lg hover:border-primary/50 cursor-pointer transition-colors"
+                        onClick={() => setOrderForm({ ...orderForm, payment_method: "cash" })}>
+                        <input
+                          type="radio"
+                          id="payment-cash"
+                          name="payment_method"
+                          value="cash"
+                          checked={orderForm.payment_method === "cash"}
+                          onChange={(e) =>
+                            setOrderForm({ ...orderForm, payment_method: e.target.value as "cash" | "gpay" })
+                          }
+                          className="cursor-pointer"
+                        />
+                        <Label htmlFor="payment-cash" className="cursor-pointer flex-1 mb-0">
+                          <span className="font-medium">💵 Cash on Pickup</span>
+                          <p className="text-sm text-muted-foreground">Pay when you pick up your order</p>
+                        </Label>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 border-2 border-border rounded-lg hover:border-primary/50 cursor-pointer transition-colors"
+                        onClick={() => setOrderForm({ ...orderForm, payment_method: "gpay" })}>
+                        <input
+                          type="radio"
+                          id="payment-gpay"
+                          name="payment_method"
+                          value="gpay"
+                          checked={orderForm.payment_method === "gpay"}
+                          onChange={(e) =>
+                            setOrderForm({ ...orderForm, payment_method: e.target.value as "cash" | "gpay" })
+                          }
+                          className="cursor-pointer"
+                        />
+                        <Label htmlFor="payment-gpay" className="cursor-pointer flex-1 mb-0">
+                          <span className="font-medium">📱 Google Pay</span>
+                          <p className="text-sm text-muted-foreground">Share payment screenshot on WhatsApp</p>
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Google Pay Screenshot Upload */}
+                  {orderForm.payment_method === "gpay" && (
+                    <div className="sm:col-span-2">
+                      <Label htmlFor="gpay-screenshot" className="mb-2 block">
+                        Google Pay Payment Screenshot * <span className="text-xs text-muted-foreground">(Required for verification)</span>
+                      </Label>
+                      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                        <input
+                          id="gpay-screenshot"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast({
+                                  title: "File too large",
+                                  description: "Screenshot must be less than 5MB",
+                                  variant: "destructive",
+                                });
+                              } else {
+                                setGpayScreenshot(file);
+                                toast({
+                                  title: "Screenshot uploaded",
+                                  description: `${file.name} is ready to be sent via WhatsApp`,
+                                });
+                              }
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="gpay-screenshot"
+                          className="cursor-pointer flex flex-col items-center justify-center gap-2"
+                        >
+                          <Upload className="w-8 h-8 text-muted-foreground" />
+                          {gpayScreenshot ? (
+                            <>
+                              <p className="font-medium text-foreground">✓ {gpayScreenshot.name}</p>
+                              <p className="text-xs text-muted-foreground">Click to change</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-medium text-foreground">Click to upload or drag and drop</p>
+                              <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        The screenshot will be shared with us on WhatsApp after you submit this order form.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="sm:col-span-2">
                     <Label htmlFor="order-requests">Special Requests</Label>
                     <Textarea
@@ -541,16 +711,25 @@ const ContactSection = () => {
                   type="submit"
                   size="lg"
                   className="w-full text-lg py-6"
-                  disabled={orderMutation.isPending || orderItems.length === 0}
+                  disabled={
+                    orderMutation.isPending ||
+                    orderItems.length === 0 ||
+                    !orderForm.pickup_date ||
+                    !orderForm.pickup_time ||
+                    (orderForm.payment_method === "gpay" && !gpayScreenshot) ||
+                    isUploadingScreenshot
+                  }
                 >
                   {orderMutation.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   ) : null}
-                  Submit Order Request
+                  {isUploadingScreenshot ? "Processing..." : "Submit Order"}
                 </Button>
 
                 <p className="text-sm text-muted-foreground text-center">
-                  This is an order request. We'll contact you to confirm availability and arrange pickup/delivery.
+                  {orderForm.payment_method === "gpay"
+                    ? "✓ Your payment screenshot will be shared via WhatsApp for verification"
+                    : "After submission, confirm payment details on WhatsApp"}
                 </p>
               </form>
             </div>
